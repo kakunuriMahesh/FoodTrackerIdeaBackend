@@ -7,15 +7,23 @@ const router = express.Router();
 router.post("/", async (req, res) => {
   try {
     console.log("📝 [Food Route] POST /food - Create food entry");
-    const { name, tags, likeScore, feelingText, hasImage } = req.body;
+    const { name, tags, likeScore, feelingText, hasImage, dateKey: requestedDate } = req.body;
     const userId = req.user.uid;
 
     console.log("👤 [Food Route] User ID:", userId);
-    console.log("📊 [Food Route] Food data:", { name, tags, likeScore, feelingText, hasImage });
+    console.log("📊 [Food Route] Food data:", { name, tags, likeScore, feelingText, hasImage, requestedDate });
 
-    // Generate dateKey as YYYY-MM-DD
-    const now = new Date();
-    const dateKey = now.toISOString().split("T")[0];
+    // Use requested date or today
+    const today = new Date().toISOString().split("T")[0];
+    let dateKey = requestedDate || today;
+
+    // Validate date is not in the future
+    if (dateKey > today) {
+      console.log("⚠️ [Food Route] Future date rejected:", dateKey);
+      dateKey = today; // Fall back to today
+    }
+
+    console.log("📅 [Food Route] Using dateKey:", dateKey);
 
     const foodEntry = new FoodEntry({
       userId,
@@ -100,6 +108,41 @@ router.post("/:id/image", async (req, res) => {
       stack: error.stack,
     });
     res.status(500).json({ error: "Failed to upload image", details: error.message });
+  }
+});
+
+// ✅ Search Food Entries
+router.get("/search", async (req, res) => {
+  try {
+    console.log("🔍 [Food Route] GET /food/search - Search food");
+    const { q } = req.query;
+    const userId = req.user.uid;
+
+    if (!q || q.length < 2) {
+      return res.status(400).json({ error: "Query must be at least 2 characters" });
+    }
+
+    console.log("👤 [Food Route] User ID:", userId);
+    console.log("🔎 [Food Route] Search query:", q);
+
+    // Search in name, tags, and feelingText
+    const foods = await FoodEntry.find({
+      userId,
+      $or: [
+        { name: { $regex: q, $options: "i" } },
+        { tags: { $regex: q, $options: "i" } },
+        { feelingText: { $regex: q, $options: "i" } },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    console.log("✅ [Food Route] Found", foods.length, "matching entries");
+
+    res.json({ foods, count: foods.length });
+  } catch (error) {
+    console.error("❌ [Food Route] Search error:", error.message);
+    res.status(500).json({ error: "Search failed" });
   }
 });
 

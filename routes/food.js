@@ -55,36 +55,29 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ✅ Upload Image (Async)
+// ✅ Upload Image (Update URL after client upload)
 router.post("/:id/image", async (req, res) => {
   try {
-    console.log("📸 [Food Route] POST /food/:id/image - Upload image");
+    console.log("📸 [Food Route] POST /food/:id/image - Update image URL");
     const { id } = req.params;
     const userId = req.user.uid;
+    const { imageUrl, publicId } = req.body;
 
     console.log("👤 [Food Route] User ID:", userId);
     console.log("📝 [Food Route] Food ID:", id);
+    console.log("🖼️ [Food Route] Image URL:", imageUrl);
 
-    // For now, we'll handle base64 image data
-    // In production, integrate with S3/Cloudflare R2
-    const { imageData } = req.body;
-
-    if (!imageData) {
-      console.warn("⚠️ [Food Route] No image data provided");
-      return res.status(400).json({ error: "No image data provided" });
+    if (!imageUrl || !publicId) {
+      console.warn("⚠️ [Food Route] No image URL or public ID provided");
+      return res.status(400).json({ error: "Missing image URL or public ID" });
     }
-
-    console.log("📍 [Food Route] Image data length:", imageData.length, "bytes");
-
-    // TODO: Upload to S3/R2 and get URL
-    // For MVP, we'll store a placeholder
-    const imageUrl = `https://placeholder.com/1200x1200?text=${encodeURIComponent("Food")}&bgColor=ff69b4`;
 
     console.log("📍 [Food Route] Updating food entry in MongoDB...");
     const foodEntry = await FoodEntry.findOneAndUpdate(
       { _id: id, userId },
       {
         imageUrl,
+        imagePublicId: publicId,
         imageUploaded: true,
       },
       { new: true }
@@ -95,19 +88,58 @@ router.post("/:id/image", async (req, res) => {
       return res.status(404).json({ error: "Food entry not found" });
     }
 
-    console.log("✅ [Food Route] Image uploaded successfully");
+    console.log("✅ [Food Route] Image URL updated successfully");
 
     res.json({
       success: true,
       imageUrl: foodEntry.imageUrl,
     });
   } catch (error) {
-    console.error("❌ [Food Route] Error uploading image:", {
+    console.error("❌ [Food Route] Error updating image URL:", {
       message: error.message,
       code: error.code,
       stack: error.stack,
     });
-    res.status(500).json({ error: "Failed to upload image", details: error.message });
+    res.status(500).json({ error: "Failed to update image", details: error.message });
+  }
+});
+
+// ✅ Get Cloudinary Upload Signature
+router.get("/sign-upload", (req, res) => {
+  try {
+    console.log("🔐 [Food Route] GET /sign-upload - Generate signature");
+    
+    // Check if Cloudinary is configured
+    if (!process.env.CLOUDINARY_API_SECRET) {
+      console.error("❌ [Food Route] Cloudinary API Secret missing");
+      return res.status(500).json({ error: "Server configuration error" });
+    }
+
+    const timestamp = Math.round(new Date().getTime() / 1000);
+    const folder = "food-tracker"; // Optional: organize images in a folder
+
+    // Generate signature
+    const cloudinary = require("../config/cloudinary");
+    const signature = cloudinary.utils.api_sign_request(
+      {
+        timestamp,
+        folder,
+      },
+      process.env.CLOUDINARY_API_SECRET
+    );
+
+    console.log("✅ [Food Route] Signature generated");
+
+    res.json({
+      signature,
+      timestamp,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+      apiKey: process.env.CLOUDINARY_API_KEY,
+      folder,
+    });
+  } catch (error) {
+    console.error("❌ [Food Route] Error generating signature:", error);
+    res.status(500).json({ error: "Failed to generate signature" });
   }
 });
 

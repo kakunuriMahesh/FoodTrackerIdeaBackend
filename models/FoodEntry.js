@@ -15,6 +15,10 @@ const foodEntrySchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    imagePublicId: {
+      type: String,
+      default: null,
+    },
     tags: {
       type: [String],
       default: [],

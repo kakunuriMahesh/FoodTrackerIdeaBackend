@@ -144,6 +144,45 @@ router.get("/sign-upload", (req, res) => {
 });
 
 // ✅ Search Food Entries
+// ✅ Get Tag Suggestions (returns unique tags matching query)
+router.get("/tags/suggestions", async (req, res) => {
+  try {
+    const { q } = req.query;
+    const userId = req.user.uid;
+
+    if (!q || q.length < 1) {
+      return res.json({ tags: [] });
+    }
+
+    console.log(`🔍 [Food Route] Suggesting tags for query: "${q}"`);
+
+    // Use aggregation to precisely filter matching tags
+    const suggestions = await FoodEntry.aggregate([
+      { $match: { userId, tags: { $regex: q, $options: "i" } } },
+      { 
+        $project: {
+          matchedTags: {
+            $filter: {
+              input: "$tags",
+              as: "tag",
+              cond: { $regexMatch: { input: "$$tag", regex: q, options: "i" } }
+            }
+          }
+        }
+      },
+      { $unwind: "$matchedTags" },
+      { $group: { _id: "$matchedTags" } },
+      { $limit: 10 },
+    ]);
+
+    const tagList = suggestions.map((s) => s._id);
+    res.json({ tags: tagList });
+  } catch (error) {
+    console.error("❌ [Tag Suggestions Error]:", error);
+    res.status(500).json({ error: "Failed to fetch suggestions" });
+  }
+});
+
 router.get("/search", async (req, res) => {
   try {
     console.log("🔍 [Food Route] GET /food/search - Search food");

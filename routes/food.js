@@ -262,29 +262,29 @@ router.get("/timeline/history", async (req, res) => {
     const userId = req.user.uid;
     const days = parseInt(req.query.days) || 3;
     const page = parseInt(req.query.page) || 1;
-    const limit = 20;
+    const limit = parseInt(req.query.limit) || 20; // allow client to override
     const skip = (page - 1) * limit;
 
     console.log("👤 [Food Route] User ID:", userId);
     console.log("📊 [Food Route] Query params - days:", days, "page:", page, "limit:", limit);
 
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    // build query conditionally based on days parameter
+    const query = { userId };
+    if (days > 0) {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      console.log("📍 [Food Route] Fetching entries from", startDate.toISOString(), "to now");
+      query.createdAt = { $gte: startDate };
+    } else {
+      console.log("📍 [Food Route] Fetching all entries for user");
+    }
 
-    console.log("📍 [Food Route] Fetching entries from", startDate.toISOString(), "to now");
-
-    const foods = await FoodEntry.find({
-      userId,
-      createdAt: { $gte: startDate },
-    })
+    const foods = await FoodEntry.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    const total = await FoodEntry.countDocuments({
-      userId,
-      createdAt: { $gte: startDate },
-    });
+    const total = await FoodEntry.countDocuments(query);
 
     console.log("✅ [Food Route] Found", foods.length, "of", total, "total entries");
 
@@ -377,6 +377,30 @@ router.patch("/:id", async (req, res) => {
       stack: error.stack,
     });
     res.status(500).json({ error: "Failed to update food entry", details: error.message });
+  }
+});
+
+// ✅ Delete user account (remove all food entries)
+//    the client should also perform logout and clear local data
+// endpoint renamed to /account/delete to avoid clash with parameter routes
+router.delete("/account/delete", async (req, res) => {
+  try {
+    console.log("🗑️ [Food Route] DELETE /food/account - Delete user account and data");
+    const userId = req.user.uid;
+    console.log("👤 [Food Route] User ID:", userId);
+
+    console.log("📍 [Food Route] Removing all entries for user from MongoDB...");
+    const result = await FoodEntry.deleteMany({ userId });
+
+    console.log(`✅ [Food Route] Deleted ${result.deletedCount} food entries`);
+    res.json({ success: true, deletedCount: result.deletedCount });
+  } catch (error) {
+    console.error("❌ [Food Route] Error deleting account data:", {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Failed to delete account", details: error.message });
   }
 });
 

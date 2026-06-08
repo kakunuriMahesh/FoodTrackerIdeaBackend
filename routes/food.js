@@ -3,6 +3,13 @@ const FoodEntry = require("../models/FoodEntry");
 
 const router = express.Router();
 
+const getDateKey = (date = new Date()) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
 // ✅ Create Food (FAST - no image)
 router.post("/", async (req, res) => {
   try {
@@ -13,15 +20,8 @@ router.post("/", async (req, res) => {
     console.log("👤 [Food Route] User ID:", userId);
     console.log("📊 [Food Route] Food data:", { name, tags, likeScore, feelingText, hasImage, mealTime, requestedDate });
 
-    // Use requested date or today
-    const today = new Date().toISOString().split("T")[0];
-    let dateKey = requestedDate || today;
-
-    // Validate date is not in the future
-    if (dateKey > today) {
-      console.log("⚠️ [Food Route] Future date rejected:", dateKey);
-      dateKey = today; // Fall back to today
-    }
+    // Use requested date or today (frontend already prevents future dates)
+    const dateKey = requestedDate || getDateKey();
 
     console.log("📅 [Food Route] Using dateKey:", dateKey);
 

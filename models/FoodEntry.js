@@ -33,6 +33,11 @@ const foodEntrySchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    mealTime: {
+      type: String,
+      enum: ["FN", "AN", "EV", "NT"],
+      default: null,
+    },
     imageUploaded: {
       type: Boolean,
       default: false,

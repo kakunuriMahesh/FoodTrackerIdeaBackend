@@ -7,11 +7,11 @@ const router = express.Router();
 router.post("/", async (req, res) => {
   try {
     console.log("📝 [Food Route] POST /food - Create food entry");
-    const { name, tags, likeScore, feelingText, hasImage, dateKey: requestedDate } = req.body;
+    const { name, tags, likeScore, feelingText, hasImage, mealTime, dateKey: requestedDate } = req.body;
     const userId = req.user.uid;
 
     console.log("👤 [Food Route] User ID:", userId);
-    console.log("📊 [Food Route] Food data:", { name, tags, likeScore, feelingText, hasImage, requestedDate });
+    console.log("📊 [Food Route] Food data:", { name, tags, likeScore, feelingText, hasImage, mealTime, requestedDate });
 
     // Use requested date or today
     const today = new Date().toISOString().split("T")[0];
@@ -31,6 +31,7 @@ router.post("/", async (req, res) => {
       tags: tags || [],
       likeScore: likeScore || null,
       feelingText: feelingText || null,
+      mealTime: mealTime || null,
       dateKey,
       imageUploaded: false,
     });
